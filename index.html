@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tarr Tech School of Technology Quiz App</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+
+body {
+    margin: 0;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+}
+
+.app {
+    width: 100%;
+    max-width: 520px;
+    background: #0b1d2a;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.4);
+}
+
+h2,h3 { text-align: center; color: #00d4ff; }
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #00d4ff;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.timer {
+    background: #ff4757;
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+.category { margin-top: 10px; color: #ffd32a; }
+
+.question { margin: 15px 0; font-size: 1.1rem; }
+
+.answers { padding: 0; }
+
+.answers li {
+    list-style: none;
+    background: #102f44;
+    margin-bottom: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.answers li:hover {
+    background: #1a4a6b;
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+}
+
+.answers li.correct { 
+    background: #2ecc71; 
+    color: #fff;
+    font-weight: bold;
+}
+
+.answers li.correct::after {
+    content: " ✓";
+    margin-left: 10px;
+    font-size: 1.2rem;
+}
+
+.answers li.wrong { 
+    background: #e74c3c; 
+    color: #fff;
+    font-weight: bold;
+}
+
+.answers li.wrong::after {
+    content: " ✗";
+    margin-left: 10px;
+    font-size: 1.2rem;
+}
+
+.dashboard ul {
+    padding: 0;
+}
+
+.dashboard li {
+    list-style: none;
+    background: #102f44;
+    margin-bottom: 8px;
+    padding: 10px;
+    border-radius: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app" id="app">
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+    <h2>Tarr Tech School of Technology</h2>
+    <input type="text" id="studentName" placeholder="Student Full Name" required>
+    <input type="text" id="studentId" placeholder="Student ID" required>
+    <button onclick="startQuiz()">Login / Sign Up</button>
+    <button style="margin-top:8px;background:#ffd32a;color:#000;" onclick="showLeaderboard()">View Leaderboard</button>
+</div>
+
+</div>
+
+<script>
+// Simple client-side auth + leaderboard using localStorage
+const USERS_KEY = 'quiz_users_v1';
+const LEADERBOARD_KEY = 'quiz_leaderboard_v1';
+const CURRENT_USER_KEY = 'quiz_current_user_v1';
+
+let student = {};
+let currentUser = null;
+let index = 0;
+let time = 10;
+let timer;
+let scores = {};
+let selectedCategory = null;
+let selectedAnswerIndex = null;
+let answerSelected = false;
+
+const quizCategories = {
+    "HTML": [
+        {question: "What does HTML stand for?", options: ["Hyper Text Markup Language", "High Tech Modern Language", "Home Tool Markup Language", "Hyperlinks and Text Markup Language"], correct: 0},
+        {question: "What is the correct HTML element for the largest heading?", options: ["<h6>", "<heading>", "<h1>", "<head>"], correct: 2},
+        {question: "Which HTML element is used to specify a footer?", options: ["<footer>", "<bottom>", "<foot>", "<end>"], correct: 0},
+        {question: "How many header levels are there in HTML?", options: ["3", "5", "6", "7"], correct: 2},
+        {question: "What is the purpose of the <meta> tag?", options: ["To define metadata about the document", "To create a table", "To link stylesheets", "To create forms"], correct: 0},
+        {question: "Which attribute is used to add a comment in HTML?", options: ["//comment", "<!--comment-->", "<comment>", "#comment"], correct: 1},
+        {question: "What does the <a> tag do?", options: ["Creates a heading", "Defines a hyperlink", "Adds an image", "Creates a table"], correct: 1},
+        {question: "Which tag is used to insert JavaScript?", options: ["<js>", "<script>", "<javascript>", "<code>"], correct: 1},
+        {question: "What is the correct way to add a background color in HTML?", options: ["<body bgcolor='red'>", "<background>red</background>", "<color>red</color>", "<bg>red</bg>"], correct: 0},
+        {question: "Which tag defines the main content of a document?", options: ["<main>", "<content>", "<section>", "<div>"], correct: 0}
+    ],
+    "CSS": [
+        {question: "What does CSS stand for?", options: ["Computer Style Sheets", "Cascading Style Sheets", "Creative Style Syntax", "Colorful Style System"], correct: 1},
+        {question: "Which property is used to change the text color?", options: ["text-color", "color", "font-color", "text-style"], correct: 1},
+        {question: "How do you select an element with id 'header'?", options: [".header", "#header", "@header", "header"], correct: 1},
+        {question: "What is the default value of the position property?", options: ["absolute", "relative", "static", "fixed"], correct: 2},
+        {question: "Which property controls the space between the border and content?", options: ["margin", "padding", "spacing", "border-space"], correct: 1},
+        {question: "How do you make text bold in CSS?", options: ["font-weight: bold", "text-weight: bold", "font: bold", "weight: bold"], correct: 0},
+        {question: "What does 'box-sizing: border-box' do?", options: ["Includes padding and border in the element's total width and height", "Removes the border", "Adds a border", "Centers the element"], correct: 0},
+        {question: "Which property is used to add transparency to an element?", options: ["transparency", "opacity", "alpha", "filter"], correct: 1},
+        {question: "How do you center content horizontally with flexbox?", options: ["justify-items: center", "justify-content: center", "align-center: center", "text-align: center"], correct: 1},
+        {question: "What is the correct CSS syntax for selecting all p elements?", options: ["p {}", "all.p {}", "<p>", "select p"], correct: 0}
+    ],
+    "JavaScript": [
+        {question: "How do you declare a variable in JavaScript?", options: ["var name;", "variable name;", "v name;", "declare name;"], correct: 0},
+        {question: "What is the output of typeof undefined?", options: ["'undefined'", "'object'", "'null'", "'none'"], correct: 0},
+        {question: "Which method is used to find an element by ID?", options: ["getElementById()", "getElementByClass()", "querySelector()", "getElement()"], correct: 0},
+        {question: "What does JSON stand for?", options: ["JavaScript Object Network", "JavaScript Object Notation", "Java Source Object Network", "JavaScript Online Notation"], correct: 1},
+        {question: "How do you create a function in JavaScript?", options: ["function myFunc()", "def myFunc()", "func myFunc()", "create myFunc()"], correct: 0},
+        {question: "What is the correct way to write a comment in JavaScript?", options: ["// this is a comment", "<!-- this is a comment -->", "* this is a comment", "{ this is a comment }"], correct: 0},
+        {question: "How do you add an element to the end of an array?", options: ["arr.add()", "arr.push()", "arr.append()", "arr.insert()"], correct: 1},
+        {question: "What does 'use strict' do?", options: ["Makes code run faster", "Declares strict variables", "Enforces strict mode rules", "Nothing"], correct: 2},
+        {question: "How do you check if a variable is an array?", options: ["Array.isArray()", "is_array()", "typeof [] === 'array'", "arr.isArray()"], correct: 0},
+        {question: "What is the difference between let and var?", options: ["No difference", "let is block-scoped, var is function-scoped", "let is faster", "let cannot be reassigned"], correct: 1}
+    ],
+    "Python": [
+        {question: "What is the correct syntax to create a function in Python?", options: ["func myFunc():", "def myFunc():", "function myFunc():", "create myFunc():"], correct: 1},
+        {question: "How do you create a list in Python?", options: ["list = [1, 2, 3]", "list = (1, 2, 3)", "list = {1, 2, 3}", "list = <1, 2, 3>"], correct: 0},
+        {question: "What is the correct way to add a comment in Python?", options: ["// comment", "# comment", "<!-- comment -->", "* comment"], correct: 1},
+        {question: "How do you check if a variable is a string?", options: ["isinstance(var, str)", "isString(var)", "type(var) == 'string'", "checkString(var)"], correct: 0},
+        {question: "What does len() function do?", options: ["Returns length", "Returns a list", "Defines a variable", "Converts to lowercase"], correct: 0},
+        {question: "How do you create a dictionary in Python?", options: ["dict = [1, 2, 3]", "dict = {key: value}", "dict = (1, 2, 3)", "dict = <1, 2, 3>"], correct: 1},
+        {question: "What is the correct indentation for Python?", options: ["1 space", "2 spaces", "4 spaces (or consistent)", "8 spaces"], correct: 2},
+        {question: "How do you create a tuple?", options: ["tuple = [1, 2, 3]", "tuple = (1, 2, 3)", "tuple = {1, 2, 3}", "tuple = {1: 2}"], correct: 1},
+        {question: "What is the output of 5 // 2 in Python?", options: ["2.5", "2", "3", "Error"], correct: 1},
+        {question: "How do you import a module in Python?", options: ["include module", "import module", "require module", "load module"], correct: 1}
+    ],
+    "React": [
+        {question: "What is React?", options: ["A database", "A JavaScript library for UI", "A CSS framework", "A backend framework"], correct: 1},
+        {question: "What is JSX?", options: ["JavaScript XML", "Java Syntax Extension", "JSON Extension", "JavaScript External"], correct: 0},
+        {question: "How do you create a functional component in React?", options: ["<Component />", "function Component() {}", "class Component {}", "const Component = []"], correct: 1},
+        {question: "What hook is used to manage state in functional components?", options: ["useComponent", "useState", "useState", "setState"], correct: 1},
+        {question: "What is props in React?", options: ["Properties passed to components", "Program options", "Property sheets", "Process points"], correct: 0},
+        {question: "How do you handle events in React?", options: ["onclick='function'", "onClick={function}", "on-click={function}", "click={function}"], correct: 1},
+        {question: "What does the useEffect hook do?", options: ["Affects performance", "Runs side effects after render", "Creates effects", "Deletes components"], correct: 1},
+        {question: "How do you pass data from parent to child component?", options: ["Through events", "Through props", "Through state", "Through imports"], correct: 1},
+        {question: "What is the virtual DOM?", options: ["A fake DOM", "React's copy of the DOM for performance", "A CSS concept", "A database"], correct: 1},
+        {question: "How do you create a class component?", options: ["function Component() {}", "const Component = () => {}", "class Component extends React.Component {}", "component Component {}"], correct: 2}
+    ],
+    "SQL": [
+        {question: "What does SQL stand for?", options: ["Structured Query Language", "Simple Query Language", "Standard Query Logic", "Structured Question Language"], correct: 0},
+        {question: "Which keyword is used to retrieve data?", options: ["RETRIEVE", "GET", "SELECT", "PULL"], correct: 2},
+        {question: "How do you insert data into a table?", options: ["ADD INTO table", "INSERT INTO table VALUES()", "PUT INTO table", "PUSH INTO table"], correct: 1},
+        {question: "What does JOIN do?", options: ["Combines rows from multiple tables", "Combines columns", "Deletes data", "Creates a table"], correct: 0},
+        {question: "Which SQL keyword is used to sort results?", options: ["SORT", "ORDER BY", "ARRANGE", "RANK"], correct: 1},
+        {question: "What is the purpose of WHERE clause?", options: ["To create tables", "To filter records", "To join tables", "To update data"], correct: 1},
+        {question: "How do you update data in SQL?", options: ["CHANGE table SET", "UPDATE table SET", "MODIFY table SET", "ALTER table SET"], correct: 1},
+        {question: "What does GROUP BY do?", options: ["Groups rows that have same values", "Sorts data", "Joins tables", "Creates a backup"], correct: 0},
+        {question: "How do you delete records?", options: ["REMOVE FROM", "DELETE FROM", "DROP FROM", "ERASE FROM"], correct: 1},
+        {question: "What is a PRIMARY KEY?", options: ["A backup key", "A unique identifier for records", "A security key", "An optional field"], correct: 1}
+    ],
+    "Laravel": [
+        {question: "What is Laravel?", options: ["A database", "A PHP web framework", "A JavaScript library", "A CSS framework"], correct: 1},
+        {question: "What is the main folder structure in Laravel?", options: ["src, public, config", "app, routes, resources, public", "database, controllers, views", "models, controllers, routes"], correct: 1},
+        {question: "What is a route in Laravel?", options: ["A folder path", "A URL path that triggers a controller action", "A database path", "A file location"], correct: 1},
+        {question: "What is a migration in Laravel?", options: ["Moving data", "Version control for database schema", "Backup process", "Data transfer"], correct: 1},
+        {question: "How do you define a route in Laravel?", options: ["Route::get('/', 'HomeController@index')", "route('/') -> index", "create.route('/')", "path('/') -> index"], correct: 0},
+        {question: "What is Eloquent?", options: ["A language", "Laravel's ORM", "A database tool", "A validation library"], correct: 1},
+        {question: "What is middleware in Laravel?", options: ["Data storage", "Request processing layer", "Database connection", "Cache system"], correct: 1},
+        {question: "How do you create a model in Laravel?", options: ["php artisan create:model Name", "php artisan make:model Name", "php create:model Name", "artisan model Name"], correct: 1},
+        {question: "What is a controller in Laravel?", options: ["A database table", "A class that handles requests", "A routing file", "A view file"], correct: 1},
+        {question: "What is the command to run migrations?", options: ["php artisan migrate", "php migrate", "migration run", "artisan run:migrate"], correct: 0}
+    ]
+};
+
+const quizData = [];
+Object.entries(quizCategories).forEach(([category, questions]) => {
+    quizData.push(...questions.map(q => ({ ...q, category })));
+});
+
+const app = document.getElementById("app");
+
+function startQuiz() {
+    const name = document.getElementById("studentName").value.trim();
+    const id = document.getElementById("studentId").value.trim();
+
+    if (!name || !id) {
+        alert("Please enter your name and ID");
+        return;
+    }
+
+    student = { name, id };
+    // Persist user (create if missing) and set current user
+    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+    const existing = users.find(u => u.id === id);
+    if (!existing) {
+        users.push(student);
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(student));
+    currentUser = student;
+    showCategorySelection();
+}
+
+function showCategorySelection() {
+    app.innerHTML = `
+        <div>
+            <h2>Select a Subject</h2>
+            <p>Student: <strong>${student.name}</strong></p>
+            <div style="display:flex;gap:8px; margin:10px 0;">
+                <button onclick="showProfile()" style="flex:1;background:#ffd32a;color:#000;">Profile</button>
+                <button onclick="showLeaderboard()" style="flex:1;background:#00d4ff;">Leaderboard</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                ${Object.keys(quizCategories).map(cat => 
+                    `<button onclick="selectCategory('${cat}')" style="background: #1e90ff; padding: 15px; font-size: 1rem;">${cat}</button>`
+                ).join("")}
+            </div>
+        </div>
+    `;
+}
+
+function selectCategory(category) {
+    selectedCategory = category;
+    const categoryQuestions = quizCategories[category];
+    index = 0;
+    scores[category] = 0;
+    loadQuizUI();
+    loadQuestion();
+}
+
+function loadQuizUI() {
+    app.innerHTML = `
+        <div class="header">
+            <h3>${student.name}</h3>
+            <div class="timer">⏱ <span id="time">10</span>s</div>
+        </div>
+        <div class="category" id="category"></div>
+        <div class="question" id="question"></div>
+        <ul class="answers" id="answers"></ul>
+        <button onclick="nextQuestion()">Next</button>
+    `;
+}
+
+function loadQuestion() {
+    clearInterval(timer);
+    time = 10;
+    document.getElementById("time").textContent = time;
+
+    timer = setInterval(() => {
+        time--;
+        document.getElementById("time").textContent = time;
+        if (time === 0) nextQuestion();
+    }, 1000);
+
+    const categoryQuestions = quizCategories[selectedCategory];
+    const q = categoryQuestions[index];
+    
+    document.getElementById("category").textContent = "Category: " + selectedCategory;
+    document.getElementById("question").textContent = q.question;
+
+    const answers = document.getElementById("answers");
+    answers.innerHTML = "";
+    
+    // Reset answer selection state
+    selectedAnswerIndex = null;
+    answerSelected = false;
+
+    q.options.forEach((opt, i) => {
+        const li = document.createElement("li");
+        li.textContent = opt;
+        li.dataset.index = i;
+        li.style.pointerEvents = "auto";
+        li.onclick = () => selectAnswer(i, li);
+        answers.appendChild(li);
+    });
+}
+
+function selectAnswer(i, li) {
+    // Only allow selection if no answer has been selected yet
+    if (answerSelected) return;
+    
+    clearInterval(timer);
+    selectedAnswerIndex = i;
+    answerSelected = true;
+
+    // Disable all answer options after selection
+    const allAnswers = document.querySelectorAll(".answers li");
+    allAnswers.forEach(el => {
+        el.style.pointerEvents = "none";
+    });
+}
+
+function nextQuestion() {
+    const categoryQuestions = quizCategories[selectedCategory];
+    
+    // Show feedback if an answer was selected
+    if (answerSelected) {
+        const q = categoryQuestions[index];
+        const allAnswers = document.querySelectorAll(".answers li");
+        
+        if (selectedAnswerIndex === q.correct) {
+            allAnswers[selectedAnswerIndex].classList.add("correct");
+            scores[selectedCategory]++;
+        } else {
+            allAnswers[selectedAnswerIndex].classList.add("wrong");
+            allAnswers[q.correct].classList.add("correct");
+        }
+        
+        // Reset for next question after a delay
+        setTimeout(() => {
+            index++;
+            if (index < categoryQuestions.length) {
+                selectedAnswerIndex = null;
+                answerSelected = false;
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }, 1500); // Show feedback for 1.5 seconds
+    } else {
+        alert("Please select an answer first!");
+    }
+}
+
+function showResults() {
+    const categoryQuestions = quizCategories[selectedCategory];
+    app.innerHTML = `
+        <div class="dashboard">
+            <h2>✅ Quiz Complete!</h2>
+            <p><strong>Subject:</strong> ${selectedCategory}</p>
+            <p><strong>Your Score:</strong> ${scores[selectedCategory]} / ${categoryQuestions.length}</p>
+            <p><strong>Percentage:</strong> ${Math.round((scores[selectedCategory] / categoryQuestions.length) * 100)}%</p>
+            <button onclick="showCategorySelection()" style="background: #00d4ff; margin-top: 15px;">Try Another Subject</button>
+            <button onclick="location.reload()" style="background: #ff4757; margin-top: 10px;">Logout</button>
+        </div>
+    `;
+    // Save score to leaderboard
+    saveScoreToLeaderboard({
+        name: currentUser?.name || student.name,
+        id: currentUser?.id || student.id,
+        category: selectedCategory,
+        score: scores[selectedCategory],
+        total: categoryQuestions.length,
+        timestamp: Date.now()
+    });
+}
+
+function saveScoreToLeaderboard(entry) {
+    const lb = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]');
+    lb.push(entry);
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(lb));
+}
+
+function getLeaderboard(limit = 50) {
+    const lb = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]');
+    // Sort by percentage desc, then latest
+    lb.sort((a,b) => (b.score / b.total) - (a.score / a.total) || b.timestamp - a.timestamp);
+    return lb.slice(0, limit);
+}
+
+function showLeaderboard() {
+    const lb = getLeaderboard();
+    app.innerHTML = `
+        <div class="dashboard">
+            <h2>🏆 Leaderboard</h2>
+            <div id="lbList">
+                ${lb.length ? '<ul>' + lb.map(e => `<li><strong>${e.name}</strong> — ${e.category}: ${e.score}/${e.total} (${Math.round((e.score/e.total)*100)}%)</li>`).join('') + '</ul>' : '<p>No scores yet. Take a quiz!</p>'}
+            </div>
+            <button onclick="showCategorySelection()" style="background: #00d4ff; margin-top: 15px;">Back</button>
+        </div>
+    `;
+}
+
+function showProfile() {
+    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+    const user = currentUser || student;
+    const lb = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]').filter(e => e.id === (user?.id || ''));
+    app.innerHTML = `
+        <div class="dashboard">
+            <h2>Profile</h2>
+            <p><strong>Name:</strong> ${user?.name || ''}</p>
+            <p><strong>ID:</strong> ${user?.id || ''}</p>
+            <h3>Your Scores</h3>
+            ${lb.length ? '<ul>' + lb.map(e => `<li>${e.category}: ${e.score}/${e.total} — ${new Date(e.timestamp).toLocaleString()}</li>`).join('') + '</ul>' : '<p>No scores yet.</p>'}
+            <button onclick="showCategorySelection()" style="background: #00d4ff; margin-top: 15px;">Back</button>
+        </div>
+    `;
+}
+
+</script>
+
+</body>
+</html>
